@@ -1,0 +1,9 @@
+﻿<Window x:Class="CCCV.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="CCCV" Height="550" Width="420">
+    <Grid Margin="0,0,2,0">
+        <Frame Name="MainFrame" NavigationUIVisibility="Hidden"  HorizontalAlignment="Stretch"  VerticalAlignment="Stretch" />
+
+    </Grid>
+</Window>
