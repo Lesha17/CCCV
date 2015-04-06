@@ -32,12 +32,12 @@ namespace CCCV
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern int SendMessage(IntPtr hwnd, int wMsg, IntPtr wParam, IntPtr lParam);
 
-        const int WM_CHANGECBCHAIN = 0x30D;
-        const int WM_DRAWCLIPBOARD = 0x308;
+        private const int WM_CHANGECBCHAIN = 0x30D;
+        private const int WM_DRAWCLIPBOARD = 0x308;
 
-        const string List_in_PC_updated = "_list.cbd";
-        const string DownloadThread = "DownloadThread";
-        const int TIMER_INTERVAL = 600000;
+        private const string List_in_PC_updated = "_list.cbd";
+        private const string DownloadThread = "DownloadThread";
+        private const int TIMER_INTERVAL = 600000;
 
         private IntPtr nextClipboardViewer;
         private HwndSource hwndSource;
@@ -46,6 +46,8 @@ namespace CCCV
         private System.Timers.Timer timer;
 
         private StreamWriter log;
+
+        private bool changedByUser;
 
         public void CreateClipboardListener()
         {
@@ -69,8 +71,6 @@ namespace CCCV
 
                 if (Preprocessing_completed != null)
                     Preprocessing_completed(this, new EventArgs());
-
-
             }));
         }
 
@@ -109,8 +109,8 @@ namespace CCCV
         {
             Dispatcher.BeginInvoke(new System.Threading.ThreadStart(delegate
             {
-                if (settingsPage != null)
-                    MainFrame.NavigationService.Navigate(settingsPage);
+                settingsPage = settingsPage ?? new SettingsPage(settings);
+                MainFrame.NavigationService.Navigate(settingsPage);
                 addLogOutItem();
                 changedByUser = true;
                 timer = new System.Timers.Timer(TIMER_INTERVAL);
@@ -242,6 +242,102 @@ namespace CCCV
 
                     ready.Set();
                 });
+        }
+
+        private void ClipboardChanged()
+        {
+            Console.WriteLine("Clipboard changed");
+            client = new DiskSdkClient(access_token);
+            Get_and_Upload();
+        }
+
+        private void Get_and_Upload()
+        {
+            Thread t = new Thread(new ThreadStart(delegate
+            {
+                DateTime now = DateTime.Now;
+                string content_path = now.ToBinary().ToString();
+                object content = null;
+                long size = 0;
+                string thisFormat = "";
+                string[] formats = System.Windows.Clipboard.GetDataObject().GetFormats();
+                foreach (string format in formats)
+                {
+                    content = System.Windows.Clipboard.GetData(format);
+                    if (content != null && content.GetType().IsSerializable)
+                    {
+                        thisFormat = format;
+                        break;
+                    }
+                }
+                Console.WriteLine("Serializing content");
+
+                Item content_info = new Item(content, content_path, now, thisFormat, size);
+
+                JsonSerializer serializer = new JsonSerializer();
+                using (StreamWriter sw = new StreamWriter(content_path))
+                {
+                    using (JsonTextWriter writer = new JsonTextWriter(sw))
+                    {
+                        serializer.Serialize(writer, content_info);
+                    }
+                }
+                size = new FileInfo(content_path).Length;
+
+                Console.WriteLine("Serialized. Size = " + size);
+
+                if (size < settings.CurrentSizeOfData)
+                {
+                    Console.WriteLine("size<current size");
+                    OkayUpload(content_path, now, thisFormat, size);
+                }
+                else if (settings.How == Settings.HowUpload.AfterClick && size < settings.MaxSizeOfData)
+                {
+                    notifyIcon.BalloonTipClicked += delegate
+                    {
+                        Console.WriteLine("Notify clicked");
+                        OkayUpload(content_path, now, thisFormat, size);
+                    };
+                    notifyIcon.ShowBalloonTip(0, "CCCV", "Содержимое буфера обмена изменилось.\n" +
+                        "Нажмите, чтобы загрузить", ToolTipIcon.Info);
+                }
+                else if (settings.ShowBalloon)
+                {
+                    notifyIcon.BalloonTipClicked += delegate
+                    {
+                        OkayUpload(content_path, now, thisFormat, size);
+                    };
+                    notifyIcon.ShowBalloonTip(0, "CCCV", "Похоже, размер объекта больше максимального.\n" +
+                        "Нажмите, если всё равно хотите загрузить", ToolTipIcon.Info);
+                }
+            }));
+            t.SetApartmentState(ApartmentState.STA);
+            Console.WriteLine("starting thread in get_and_upload");
+            t.Start();
+        }
+
+        private void OkayUpload(string content_path, DateTime now, string thisFormat, long size)
+        {
+            ready.WaitOne();
+            Console.WriteLine("Uploading content in OkayUpload");
+            FileStream fs = File.Open(content_path, FileMode.Open);
+            client = new DiskSdkClient(access_token);
+
+            client.UploadFileAsync(Data_Folder_path + content_path, fs,
+                this, Completed);
+        }
+
+
+        private void Completed(object o, SdkEventArgs e)
+        {
+            notify_message = "Содержимое вашего буфера загружается на Диск\n";
+            ready.Set();
+            notifyIcon.BalloonTipClicked += delegate
+            {
+
+            };
+            notifyIcon.ShowBalloonTip(0, "CCCV", "Содержимое буфера обмена загружено на сервер", ToolTipIcon.Info);
+
         }
 
     }

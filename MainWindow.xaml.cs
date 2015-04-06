@@ -21,11 +21,21 @@ namespace CCCV
     public partial class MainWindow : Window, IProgress
     {
         private NotifyIcon notifyIcon;
+        private string access_token;
         private DiskSdkClient client;
         private EventWaitHandle ready;
         private string notify_message;
 
+        private LogIn login_page;
+        private Processing_page processing_page;
+
         private const string LogOut = "Log out";
+
+        public MainWindow()
+        {
+            InitializeComponent();
+            Init();
+        }
 
         void MainWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
@@ -56,16 +66,18 @@ namespace CCCV
 
         void item2_Click(object sender, EventArgs e)
         {
-            login_page = new LogIn(true);
-            MainFrame.NavigationService.Navigate(login_page);
-            //login_page.Browser.Navigate("https://passport.yandex.ru/passport?mode=logout&yu=1285273511392102260&retpath=http%3A%2F%2Fwww.yandex.ru%2F");
+            ReLogIn();
         }
 
-        void ReLogIn(object sender, NavigationEventArgs e)
+        void ReLogIn()
         {
             removeOutItem();
             changedByUser = false;
-            Authorize();
+            access_token = "";
+            settings.Token = access_token;
+            settings.save();
+            System.Diagnostics.Process.Start("https://passport.yandex.ru/passport?mode=logout&yu=2087562651427364264");
+            check_token_from_settings();
         }
 
         void item3_Click(object sender, EventArgs e)
@@ -83,6 +95,19 @@ namespace CCCV
         void notifyIcon_MouseDoubleClick(object sender, System.Windows.Forms.MouseEventArgs e)
         {
             Show();
+        }
+
+        public void UpdateProgress(ulong current, ulong total)
+        {
+            string plus = 100 * current / total + "%; ";
+            if (total / (1024 * 1024) > 0)
+                plus += (int)(100 * total / (1024 * 1024 * 1.0)) * 0.01 + " MБ";
+            else if (total / 1024 > 0)
+                plus += (int)(100 * total / (1024 * 1.0)) * 0.01 + " КБ";
+            else
+                plus += total + " байт";
+            notifyIcon.Text = notify_message + plus;
+
         }
     }
 }
