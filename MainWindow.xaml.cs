@@ -31,6 +31,9 @@ namespace CCCV
 
         private const string LogOut = "Log out";
 
+        private string local_data_path;
+        private string local_files_path;
+
         public MainWindow()
         {
             InitializeComponent();

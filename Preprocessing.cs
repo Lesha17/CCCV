@@ -35,6 +35,13 @@ namespace CCCV
             settings = new Settings();
             CreateNotifyIcon();
 
+            string tmp = System.IO.Path.GetTempPath();
+            Directory.CreateDirectory(local_data_path = tmp + Local_Data_Folder_path);
+            Directory.CreateDirectory(local_files_path = tmp + Local_Files_Folder_path);
+
+            Console.WriteLine("Data path: " + local_data_path);
+            Console.WriteLine("Files path: " + local_files_path);
+
             check_token_from_settings();
         }
 
@@ -153,15 +160,15 @@ namespace CCCV
                 return;
             }
             client = new DiskSdkClient(access_token);
-            if (!e.Result.Any(p => p.FullPath.Equals(Data_Folder_path)))
+            if (!e.Result.Any(p => p.FullPath.Equals(Disk_Data_Folder_path)))
             {
-                client.MakeFolderCompleted += client_MakeFolderCompleted;
-                client.MakeDirectoryAsync(Data_Folder_path);
+                client.MakeFolderCompleted += client_MakeDataFolderCompleted;
+                client.MakeDirectoryAsync(Disk_Data_Folder_path);
             }
             else
             {
                 client.GetListCompleted += client_GetListCompleted;
-                client.GetListAsync(Data_Folder_path);
+                client.GetListAsync(Disk_Data_Folder_path);
             }
 
             processing_page = processing_page ?? new Processing_page();
@@ -169,16 +176,30 @@ namespace CCCV
             MainFrame.Navigate(processing_page);
         }
 
-        void client_MakeFolderCompleted(object sender, SdkEventArgs e)
+        void client_MakeDataFolderCompleted(object sender, SdkEventArgs e)
         {
             client.GetListCompleted += client_GetListCompleted;
-            client.GetListAsync(Data_Folder_path);
+            client.GetListAsync(Disk_Data_Folder_path);
         }
 
         void client_GetListCompleted(object sender, GenericSdkEventArgs<IEnumerable<DiskItemInfo>> e)
         {
-            elements_in_DataFolder = e.Result;
             Console.WriteLine("Get list completed");
+            elements_in_DataFolder = e.Result;
+            if (!e.Result.Any(p => p.FullPath.Equals(Disk_Files_Folder_path)))
+            {
+                client = new DiskSdkClient(access_token);
+                client.MakeFolderCompleted += client_MakeFilesFolderCompleted;
+                client.MakeDirectoryAsync(Disk_Files_Folder_path);
+            }
+            else
+            {
+                Dispatcher.BeginInvoke(new ThreadStart(delegate { CreateClipboardListener(); }));
+            }
+        }
+
+        void client_MakeFilesFolderCompleted(object sender, SdkEventArgs e)
+        {
             Dispatcher.BeginInvoke(new ThreadStart(delegate { CreateClipboardListener(); }));
         }
 

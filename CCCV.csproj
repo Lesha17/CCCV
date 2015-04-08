@@ -91,6 +91,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="FileListUtils.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="Processing_page.xaml.cs">
       <DependentUpon>Processing_page.xaml</DependentUpon>

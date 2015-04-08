@@ -134,7 +134,7 @@ namespace CCCV
 
             client = new DiskSdkClient(access_token);
             client.GetListCompleted += client_GetListCompleted_To_Update;
-            client.GetListAsync(Data_Folder_path);
+            client.GetListAsync(Disk_Data_Folder_path);
         }
 
         void client_GetListCompleted_To_Update(object sender, GenericSdkEventArgs<IEnumerable<DiskItemInfo>> e)
@@ -149,24 +149,23 @@ namespace CCCV
                 if (!in_elements.Equals(in_Result))
                 {
                     Console.WriteLine("New item: " + in_Result.DisplayName);
-                    Item info = new Item(null, in_Result.DisplayName, in_Result.CreationDate, "", (long)(in_Result.ContentLength));
-                    process_info(info);
+                    process_info(in_Result.DisplayName, in_Result.ContentLength);
                 }
             }
         }
 
-        void process_info(Item info)
+        void process_info(string name, int size)
         {
             Thread t = new Thread(ThreadStart =>
             {
-                UpdateContent_in_Clipboard(info);
+                UpdateContent_in_Clipboard(name);
             });
             t.SetApartmentState(ApartmentState.STA);
-            if (info.Size < settings.CurrentSizeOfData)
+            if (size < settings.CurrentSizeOfData)
             {
                 t.Start();
             }
-            else if (info.Size < settings.MaxSizeOfData && settings.How == Settings.HowUpload.AfterClick)
+            else if (size < settings.MaxSizeOfData && settings.How == Settings.HowUpload.AfterClick)
             {
                 notifyIcon.BalloonTipClicked += delegate
                 {
@@ -188,28 +187,30 @@ namespace CCCV
 
         }
 
-        private void UpdateContent_in_Clipboard(Item item)
+        private void UpdateContent_in_Clipboard(string name)
         {
+            Item item = null;
             notify_message = "Загрузка: ";
             ready.WaitOne();
             client = new DiskSdkClient(access_token);
             FileStream fs;
+            string downloaded_data;
             try
             {
-                fs = File.Open(item.Path, FileMode.Create);
+                fs = File.Open(downloaded_data = local_data_path + name, FileMode.Create);
             }
             catch (Exception)
             {
                 return;
             }
 
-            client.DownloadFileAsync(Data_Folder_path + item.Path, fs,
+            client.DownloadFileAsync(Disk_Data_Folder_path + name, fs,
                 this,
                 delegate
                 {
                     fs.Close();
 
-                    fs = File.Open(item.Path, FileMode.Open);
+                    fs = File.Open(downloaded_data, FileMode.Open);
                     JsonSerializer serializer = new JsonSerializer();
 
                     using (StreamReader sr = new StreamReader(fs))
@@ -225,7 +226,17 @@ namespace CCCV
                         Thread t = new Thread(ThreadStart =>
                            {
                                changedByUser = false;
-                               System.Windows.Clipboard.SetData(item.Type, item.Data);
+                               switch (item.Type)
+                               {
+                                   case Item.ContentType.Text:
+                                       System.Windows.Clipboard.SetText((string)item.Data);
+                                       break;
+                                   case Item.ContentType.FileList:
+
+                                       break;
+                                   default:
+                                       break;
+                               }
                                notifyIcon.ShowBalloonTip(0, "CCCV", "Содержимое буфера обмена изменено.", ToolTipIcon.Info);
                            });
                         t.SetApartmentState(ApartmentState.STA);
@@ -248,7 +259,7 @@ namespace CCCV
         {
             Console.WriteLine("Clipboard changed");
             client = new DiskSdkClient(access_token);
-            Get_and_Upload();
+            new Thread(ThreadStart => { Get_and_Upload(); }).Start();
         }
 
         private void Get_and_Upload()
@@ -256,47 +267,62 @@ namespace CCCV
             Thread t = new Thread(new ThreadStart(delegate
             {
                 DateTime now = DateTime.Now;
-                string content_path = now.ToBinary().ToString();
+                string content_name = now.ToBinary().ToString();
                 object content = null;
                 long size = 0;
-                string thisFormat = "";
-                string[] formats = System.Windows.Clipboard.GetDataObject().GetFormats();
-                foreach (string format in formats)
+                Item.ContentType thisType = Item.ContentType.Text;
+
+                if (System.Windows.Clipboard.ContainsText())
                 {
-                    content = System.Windows.Clipboard.GetData(format);
-                    if (content != null && content.GetType().IsSerializable)
-                    {
-                        thisFormat = format;
-                        break;
-                    }
+                    thisType = Item.ContentType.Text;
+                    content = System.Windows.Clipboard.GetText();
                 }
+                else if (System.Windows.Clipboard.ContainsFileDropList())
+                {
+                    thisType = Item.ContentType.FileList;
+                    content = new CCCV_FileList(System.Windows.Clipboard.GetFileDropList(), Disk_Files_Folder_path + content_name + "/");
+                }
+                else if (System.Windows.Clipboard.ContainsImage())
+                {
+                    thisType = Item.ContentType.Image;
+                }
+                else if (System.Windows.Clipboard.ContainsAudio())
+                {
+                    thisType = Item.ContentType.Audio;
+                }
+                else
+                {
+                    return;
+                }
+
                 Console.WriteLine("Serializing content");
 
-                Item content_info = new Item(content, content_path, now, thisFormat, size);
+                Item content_info = new Item(content, thisType);
 
                 JsonSerializer serializer = new JsonSerializer();
-                using (StreamWriter sw = new StreamWriter(content_path))
+                string serialized_data;
+                using (StreamWriter sw = new StreamWriter(serialized_data = local_data_path + content_name))
                 {
                     using (JsonTextWriter writer = new JsonTextWriter(sw))
                     {
                         serializer.Serialize(writer, content_info);
                     }
                 }
-                size = new FileInfo(content_path).Length;
+                size = new FileInfo(serialized_data).Length + (thisType == Item.ContentType.FileList ? ((CCCV_FileList)content).Size : 0);
 
                 Console.WriteLine("Serialized. Size = " + size);
 
                 if (size < settings.CurrentSizeOfData)
                 {
                     Console.WriteLine("size<current size");
-                    OkayUpload(content_path, now, thisFormat, size);
+                    OkayUpload(content_info, serialized_data, Disk_Data_Folder_path + content_name);
                 }
                 else if (settings.How == Settings.HowUpload.AfterClick && size < settings.MaxSizeOfData)
                 {
                     notifyIcon.BalloonTipClicked += delegate
                     {
                         Console.WriteLine("Notify clicked");
-                        OkayUpload(content_path, now, thisFormat, size);
+                        OkayUpload(content_info, serialized_data, Disk_Data_Folder_path + content_name);
                     };
                     notifyIcon.ShowBalloonTip(0, "CCCV", "Содержимое буфера обмена изменилось.\n" +
                         "Нажмите, чтобы загрузить", ToolTipIcon.Info);
@@ -305,7 +331,7 @@ namespace CCCV
                 {
                     notifyIcon.BalloonTipClicked += delegate
                     {
-                        OkayUpload(content_path, now, thisFormat, size);
+                        OkayUpload(content_info, serialized_data, Disk_Data_Folder_path + content_name);
                     };
                     notifyIcon.ShowBalloonTip(0, "CCCV", "Похоже, размер объекта больше максимального.\n" +
                         "Нажмите, если всё равно хотите загрузить", ToolTipIcon.Info);
@@ -316,14 +342,26 @@ namespace CCCV
             t.Start();
         }
 
-        private void OkayUpload(string content_path, DateTime now, string thisFormat, long size)
+        private void OkayUpload(Item item, string local_path, string disk_path)
         {
-            ready.WaitOne();
+            //ready.WaitOne();
             Console.WriteLine("Uploading content in OkayUpload");
-            FileStream fs = File.Open(content_path, FileMode.Open);
-            client = new DiskSdkClient(access_token);
 
-            client.UploadFileAsync(Data_Folder_path + content_path, fs,
+            if (item.Type == Item.ContentType.FileList)
+            {
+                CreateDirs(item.Data as CCCV_FileList, local_path, disk_path);
+            }
+            else
+            {
+                UploadInfo(local_path, disk_path);  
+            }
+        }
+
+        private void UploadInfo(string local_path, string disk_path)
+        {
+            FileStream fs = File.Open(local_path, FileMode.Open);
+            client = new DiskSdkClient(access_token);
+            client.UploadFileAsync(disk_path, fs,
                 this, Completed);
         }
 
