@@ -29,7 +29,6 @@ namespace CCCV
         {
             this.Closing += MainWindow_Closing;
             Preprocessing_completed += MainWindow_Preprocessing_completed;
-            changedByUser = false;
             ready = new AutoResetEvent(true);
             notify_message = "Ничего не происходит";
             settings = new Settings();
@@ -50,7 +49,7 @@ namespace CCCV
             access_token = settings.Token;
             if (access_token == TOKEN_UNDEFINED || settings.TokenWillLive - DateTime.Now.Ticks < 1000l * 60l * 60l * 12l)
             {
-                get_code();
+                get_code(false, "");
             }
             else
             {
@@ -58,13 +57,18 @@ namespace CCCV
             }
         }
 
-        private void get_code()
+        private void get_code(bool isError, string error)
         {
             Dispatcher.BeginInvoke(new ThreadStart(delegate
             {
                 Console.WriteLine("Getting code");
                 login_page = new LogIn();
                 login_page.LogIn_OK.Click += LogIn_OK_Click;
+                if (isError)
+                {
+                    login_page.IfError_TB.Text = "Ошибка";
+                    login_page.Error_TB.Text = error;
+                }
                 MainFrame.Navigate(login_page);
                 new Thread(ThreadStart =>
                 {
@@ -98,6 +102,7 @@ namespace CCCV
             request.Host = "oauth.yandex.ru";
             request.ContentType = "application/x-www-form-urlencoded";
             request.ContentLength = array.Length;
+
             using (Stream req_stream = request.GetRequestStream())
             {
                 req_stream.Write(array, 0, array.Length);
@@ -111,7 +116,8 @@ namespace CCCV
             }
             catch (Exception)
             {
-
+                get_code(true, "Неправильный код");
+                return;
             }
             Console.WriteLine("Responce status code: " + response.StatusCode);
             if (response.StatusCode == HttpStatusCode.OK)
@@ -133,7 +139,7 @@ namespace CCCV
             }
             else
             {
-                //
+                get_code(true, "Ошибочка");
                 return;
             }
         }
@@ -156,7 +162,7 @@ namespace CCCV
             client.GetListCompleted -= Check_Data_Folder;
             if (e.Result == null)
             {
-                get_code();
+                get_code(false, "");
                 return;
             }
             client = new DiskSdkClient(access_token);

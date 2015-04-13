@@ -42,15 +42,9 @@ namespace CCCV
                 DiskItemInfo last = items.First();
                 foreach (DiskItemInfo dii in items)
                 {
-                    long diival = 0;
-                    if (long.TryParse(dii.DisplayName, out diival))
+                    if (dii.CreationDate > last.CreationDate && !dii.IsDirectory)
                     {
-                        long lastval = 0;
-                        if (long.TryParse(last.DisplayName, out lastval))
-                        {
-                            if (DateTime.FromBinary(diival) > DateTime.FromBinary(lastval))
-                                last = dii;
-                        }
+                        last = dii;
                     }
                 }
                 return last;
@@ -70,6 +64,11 @@ namespace CCCV
         private string disk_path;
         private string local_path;
         private long size;
+
+        public CCCV_FileList()
+        {
+
+        }
 
         public CCCV_FileList(StringCollection selected, string disk_path)
         {
@@ -117,12 +116,13 @@ namespace CCCV
         public string DiskPath
         {
             get { return disk_path; }
+            set { this.disk_path = value; }
         }
 
         public string LocalPath
         {
             get { return local_path; }
-            set { this.LocalPath = value; }
+            set { this.local_path = value; }
         }
 
         public long Size
@@ -134,16 +134,18 @@ namespace CCCV
         public List<string> AllFiles
         {
             get { return allFiles; }
+            set { this.allFiles = value; }
         }
 
         public List<string> AllDirs
         {
             get { return allDirs; }
+            set { this.allDirs = value; }
         }
     }
 
 
-    public partial class MainWindow : Window, IProgress
+    public partial class MainWindow : Window
     {
         private IEnumerable<DiskItemInfo> elements_in_DataFolder;
     }

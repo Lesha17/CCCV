@@ -7,14 +7,17 @@
       d:DesignHeight="300" d:DesignWidth="300"
 	Title="LogIn">
 
-    <Grid>
-        <TextBlock TextWrapping="Wrap">
+    <StackPanel>
+            <TextBlock Margin="3" Grid.Row="0" TextWrapping="Wrap">
         Вы направлены на страницу разрешения прилажению работать с вашим Диском. 
         Разрешив доступ к Диску, вы получите код подтверждения. 
         Пожалуйста, введите его в поле ниже.
-        </TextBlock>
+            </TextBlock>
         
-        <Grid VerticalAlignment="Center">
+        <TextBlock Margin="3" FontWeight="Bold" FontSize = "12" Name="IfError_TB"></TextBlock>
+        <TextBlock Margin="2" Name="Error_TB"></TextBlock>
+
+        <Grid Margin="20" VerticalAlignment="Center">
             <Grid.RowDefinitions>
                 <RowDefinition></RowDefinition>
                 <RowDefinition></RowDefinition>
@@ -24,5 +27,5 @@
             <TextBox Grid.Row="1" Name="LogIn_code"></TextBox>
             <Button Name="LogIn_OK" Grid.Row="2" Height="20">OK</Button>
         </Grid>
-    </Grid>
+    </StackPanel>
 </Page>

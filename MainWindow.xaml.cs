@@ -18,7 +18,7 @@ using System.Threading;
 
 namespace CCCV
 {
-    public partial class MainWindow : Window, IProgress
+    public partial class MainWindow : Window
     {
         private NotifyIcon notifyIcon;
         private string access_token;
@@ -33,6 +33,8 @@ namespace CCCV
 
         private string local_data_path;
         private string local_files_path;
+
+        private Progress progress;
 
         public MainWindow()
         {
@@ -62,7 +64,7 @@ namespace CCCV
         {
             foreach (System.Windows.Forms.MenuItem item in notifyIcon.ContextMenu.MenuItems)
             {
-                if(item!=null&& item.Text.Equals(LogOut))
+                if (item != null && item.Text.Equals(LogOut))
                     notifyIcon.ContextMenu.MenuItems.Remove(item);
             }
         }
@@ -75,7 +77,6 @@ namespace CCCV
         void ReLogIn()
         {
             removeOutItem();
-            changedByUser = false;
             access_token = "";
             settings.Token = access_token;
             settings.save();
@@ -100,17 +101,14 @@ namespace CCCV
             Show();
         }
 
-        public void UpdateProgress(ulong current, ulong total)
+        public void NavigateToSettings()
         {
-            string plus = 100 * current / total + "%; ";
-            if (total / (1024 * 1024) > 0)
-                plus += (int)(100 * total / (1024 * 1024 * 1.0)) * 0.01 + " MБ";
-            else if (total / 1024 > 0)
-                plus += (int)(100 * total / (1024 * 1.0)) * 0.01 + " КБ";
-            else
-                plus += total + " байт";
-            notifyIcon.Text = notify_message + plus;
+            Dispatcher.BeginInvoke(new ThreadStart(delegate { MainFrame.Navigate(settingsPage); }));
+        }
 
+        public void NavigateTo(object content)
+        {
+            Dispatcher.BeginInvoke(new ThreadStart(delegate { MainFrame.Navigate(content); }));
         }
     }
 }

@@ -5,7 +5,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <ProjectGuid>{DB2DA56F-C8C4-411A-BF01-5A86B601BDBE}</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>CCCV</RootNamespace>
     <AssemblyName>CCCV</AssemblyName>
@@ -60,11 +60,11 @@
   <ItemGroup>
     <Reference Include="Disk.SDK, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Disk.Sdk\bin\Release\Disk.SDK.dll</HintPath>
+      <HintPath>..\yandex-disk-sdk-csharp-master\SDK\Disk.Sdk\bin\Release\Disk.SDK.dll</HintPath>
     </Reference>
     <Reference Include="Disk.SDK.Provider, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Disk.SDK.Provider (.NET 4.0)\bin\Release\Disk.SDK.Provider.dll</HintPath>
+      <HintPath>..\yandex-disk-sdk-csharp-master\SDK\Disk.SDK.Provider (.NET 4.0)\bin\Release\Disk.SDK.Provider.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=6.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -98,6 +98,9 @@
     </Compile>
     <Compile Include="Preprocessing.cs" />
     <Compile Include="ClipboardUtils.cs" />
+    <Compile Include="Progress.xaml.cs">
+      <DependentUpon>Progress.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Settings.cs" />
     <Compile Include="SettingsPage.xaml.cs">
       <DependentUpon>SettingsPage.xaml</DependentUpon>
@@ -127,6 +130,10 @@
       <SubType>Code</SubType>
     </Compile>
     <Page Include="Processing_page.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Progress.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

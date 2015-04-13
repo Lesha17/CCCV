@@ -47,3 +47,7 @@ C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Release\S
 C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Release\CCCV.g.resources
 C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Release\CCCV.Properties.Resources.resources
 C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Release\CCCV.csproj.GenerateResource.Cache
+C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Release\Progress.baml
+C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Release\Progress.g.cs
+C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\bin\Release\Disk.SDK.dll
+C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\bin\Release\Disk.SDK.Provider.dll

@@ -73,3 +73,5 @@ C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Debug\Set
 C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Debug\CCCV.g.resources
 C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Debug\CCCV.Properties.Resources.resources
 C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Debug\CCCV.csproj.GenerateResource.Cache
+C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Debug\Progress.baml
+C:\Users\Алексей\Documents\Visual Studio 2013\Projects\CCCV\obj\Debug\Progress.g.cs
