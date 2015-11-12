@@ -27,7 +27,7 @@ namespace CCCV
     public partial class MainWindow
     {
 
-        private void process_to_download_FL(String name, Item item)
+        private void Process_to_download_FL(String name, Item item)
         {
             CCCV_FileList info = item.Data as CCCV_FileList;
             client = new DiskSdkClient(access_token);
@@ -35,13 +35,13 @@ namespace CCCV
 
             if (size < settings.CurrentSizeOfData)
             {
-                prepare_to_download(name, item);
+                Prepare_to_download(name, item);
             }
             else if (size < settings.MaxSizeOfData && settings.How == Settings.HowUpload.AfterClick)
             {
                 notifyIcon.BalloonTipClicked += delegate
                 {
-                    prepare_to_download(name, item);
+                    Prepare_to_download(name, item);
                 };
                 notifyIcon.ShowBalloonTip(0, "CCCV", "Содержимое буфера обмена изменилось на другом компьютере.\n" +
                     "Нажмите, чтобы загрузить", ToolTipIcon.Info);
@@ -50,7 +50,7 @@ namespace CCCV
             {
                 notifyIcon.BalloonTipClicked += delegate
                 {
-                    prepare_to_download(name, item);
+                    Prepare_to_download(name, item);
                 };
                 notifyIcon.ShowBalloonTip(0, "CCCV", "Содержимое буфера обмена изменилось на другом компьютере.\n" +
                     "Похоже, её размер больше максимально возможного"
@@ -58,22 +58,32 @@ namespace CCCV
             }
         }
 
-        private void prepare_to_download(string name, Item item)
+        private void Prepare_to_download(string name, Item item)
         {
             CCCV_FileList fl = item.Data as CCCV_FileList;
             fl.LocalPath = local_files_path + name + "\\";
-            
+
             Dispatcher.BeginInvoke(new ThreadStart(delegate
             {
-                progress = new Progress(this, fl.Size);
-                MainFrame.Navigate(progress);
-                create_tmp_dirs(item);
-                download_Files(item);
+                InitProgress(fl.Size);
+                try
+                {
+                    Create_tmp_dirs(item);
+                }
+                catch (Exception e)
+                {
+                    Dispatcher.BeginInvoke(new ThreadStart(delegate
+                    {
+                        notifyIcon.ShowBalloonTip(0, "CCCV", "Не удалось создать папку:" + "\n" + e.Message, ToolTipIcon.Error);
+                    }));
+                    return;
+                }
+                Download_Files(item, fl.Size);
             }));
-            
+
         }
 
-        private void create_tmp_dirs(Item item)
+        private void Create_tmp_dirs(Item item)
         {
             Dispatcher.BeginInvoke(new ThreadStart(delegate
             {
@@ -89,7 +99,7 @@ namespace CCCV
             }
         }
 
-        private void download_Files(Item item)
+        private void Download_Files(Item item, long size)
         {
             Dispatcher.BeginInvoke(new ThreadStart(delegate
             {
@@ -103,30 +113,65 @@ namespace CCCV
 
             if (!enumerator.MoveNext())
             {
-                setData(item);
+                SetData(item);
                 return;
             }
-            FileStream fs = new FileStream(fl.LocalPath + enumerator.Current, FileMode.Create, FileAccess.Write);
-
-            completed = new EventHandler<SdkEventArgs>(delegate(object o, SdkEventArgs e)
+            FileStream fs;
+            try
+            {
+                fs = new FileStream(fl.LocalPath + enumerator.Current, FileMode.Create, FileAccess.Write);
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.BeginInvoke(new ThreadStart(delegate
                 {
-                    fs.Close();
+                    progress.DecrementCountOfTasks(size);
+                    notifyIcon.ShowBalloonTip(0, "CCCV", "Не удалось создать файл:" + enumerator.Current + "\n" + ex.Message, ToolTipIcon.Error);
+                }));
+                return;
+            }
+
+            completed = new EventHandler<SdkEventArgs>(delegate (object o, SdkEventArgs e)
+                {
+                    try
+                    {
+                        fs.Close();
+                    }
+                    catch
+                    {
+
+                    }
                     if (e.Error != null)
                     {
                         Console.WriteLine(e.Error);
                         Dispatcher.BeginInvoke(new ThreadStart(delegate
                         {
-                            MainFrame.Navigate(settingsPage);
+                            progress.DecrementCountOfTasks(size);
                             notifyIcon.ShowBalloonTip(0, "CCCV", "Ошибка загрузки: \n" + e.Error, ToolTipIcon.Error);
                         }));
                         return;
                     }
                     if (!enumerator.MoveNext())
                     {
-                        setData(item);
+                        Dispatcher.BeginInvoke(new ThreadStart(delegate
+                        {
+                            progress.DecrementCountOfTasks(size);
+                        }));
+                        SetData(item);
                         return;
                     }
-                    fs = new FileStream(fl.LocalPath + enumerator.Current, FileMode.Create, FileAccess.Write);
+                    try
+                    {
+                        fs = new FileStream(fl.LocalPath + enumerator.Current, FileMode.Create, FileAccess.Write);
+                    }
+                    catch (Exception ex)
+                    {
+                        Dispatcher.BeginInvoke(new ThreadStart(delegate
+                        {
+                            progress.DecrementCountOfTasks(size);
+                            notifyIcon.ShowBalloonTip(0, "CCCV", "Не удалось создать файл:" + enumerator.Current + "\n" + ex.Message, ToolTipIcon.Error);
+                        }));
+                    }
                     Console.WriteLine("Downloading: " + fl.LocalPath + enumerator.Current);
                     client.DownloadFileAsync(fl.DiskPath + enumerator.Current, fs, progress, completed);
                 });
@@ -134,6 +179,7 @@ namespace CCCV
             Console.WriteLine("Downloading: " + fl.LocalPath + enumerator.Current);
 
             client.DownloadFileAsync(fl.DiskPath + enumerator.Current, fs, progress, completed);
+
         }
 
         private void UpdateClipbordContent_withFiles(CCCV_FileList fl)
@@ -155,7 +201,7 @@ namespace CCCV
             }));
         }
 
-        private void CreateDirs(CCCV_FileList fl, string local_path, string disk_path)
+        private void StartUploadFiles(CCCV_FileList fl, string local_path, string disk_path, long info_size, long fl_size)
         {
             client = new DiskSdkClient(access_token);
 
@@ -163,19 +209,14 @@ namespace CCCV
 
             EventHandler<SdkEventArgs> handler = null;
 
-            Dispatcher.BeginInvoke(new ThreadStart(delegate
-            {
-                progress.Status.Text = "Создание папок на Диске..";
-            }));
-
-            handler = new EventHandler<SdkEventArgs>(delegate(Object o, SdkEventArgs e)
+            handler = new EventHandler<SdkEventArgs>(delegate (Object o, SdkEventArgs e)
             {
                 if (e.Error != null)
                 {
                     Console.WriteLine("Error: " + e.Error);
                     Dispatcher.BeginInvoke(new ThreadStart(delegate
                     {
-                        MainFrame.Navigate(settingsPage);
+                        progress.DecrementCountOfTasks(fl_size);
                         notifyIcon.ShowBalloonTip(0, "CCCV", "Ошибка создания папок на Диске: \n" + e.Error, ToolTipIcon.Error);
                     }));
                     return;
@@ -183,7 +224,7 @@ namespace CCCV
                 }
                 if (!dirs.MoveNext())
                 {
-                    UploadFiles(fl, local_path, disk_path, progress);
+                    UploadFiles(fl, local_path, disk_path, info_size, fl_size, progress);
                     return;
                 }
                 Console.WriteLine("Making directory: " + fl.DiskPath + dirs.Current);
@@ -192,11 +233,16 @@ namespace CCCV
 
             client.MakeFolderCompleted += handler;
 
-            Console.WriteLine("Making directory: " + fl.DiskPath);
-            client.MakeDirectoryAsync(fl.DiskPath);
+            Dispatcher.BeginInvoke(new ThreadStart(delegate
+            {
+                InitProgress(fl_size);
+                progress.Status.Text = "Создание папок на Диске..";
+                Console.WriteLine("Making directory: " + fl.DiskPath);
+                client.MakeDirectoryAsync(fl.DiskPath);
+            }));
         }
 
-        private void UploadFiles(CCCV_FileList fl, string local_path, string disk_path, Progress pr)
+        private void UploadFiles(CCCV_FileList fl, string local_path, string disk_path, long info_size, long fl_size, Progress pr)
         {
             Dispatcher.BeginInvoke(new ThreadStart(delegate
             {
@@ -211,45 +257,83 @@ namespace CCCV
 
             if (!files.MoveNext())
             {
-                UploadInfo(local_path, disk_path);
+                Dispatcher.BeginInvoke(new ThreadStart(delegate
+                {
+                    UploadInfo(local_path, disk_path, info_size);
+                }));
                 return;
             }
 
-            //FileInfo fi = new FileInfo(fl.LocalPath + files.Current);
 
-            FileStream fs = new FileStream(fl.LocalPath + files.Current, FileMode.Open, FileAccess.Read);
-
-            handler = new EventHandler<SdkEventArgs>(delegate(Object o, SdkEventArgs e)
+            FileStream fs = null;
+            try
             {
-                fs.Close();
-                //progress.Done += fi.Length;
+                fs = new FileStream(fl.LocalPath + files.Current, FileMode.Open, FileAccess.Read);
+            }
+            catch (Exception ex)
+            {
+                Dispatcher.BeginInvoke(new ThreadStart(delegate
+                {
+                    notifyIcon.ShowBalloonTip(0, "CCCV", "Не удалось открыть файл:" + files.Current + "\n" + ex.Message, ToolTipIcon.Error);
+                }));
+                return;
+            }
+            handler = new EventHandler<SdkEventArgs>(delegate (Object o, SdkEventArgs e)
+            {
+                try
+                {
+                    fs.Close();
+                }
+                catch
+                {
+
+                }
+
+                if (!files.MoveNext())
+                {
+                    Dispatcher.BeginInvoke(new ThreadStart(delegate
+                    {
+                        progress.DecrementCountOfTasks(fl_size);
+                        UploadInfo(local_path, disk_path, info_size);
+                    }));
+
+                    return;
+                }
+
                 if (e.Error != null)
                 {
                     Console.WriteLine(e.Error);
                     Dispatcher.BeginInvoke(new ThreadStart(delegate
                     {
-                        MainFrame.Navigate(settingsPage);
+                        progress.DecrementCountOfTasks(fl_size);
                         notifyIcon.ShowBalloonTip(0, "CCCV", "Ошибка загрузки файлов на Диск: \n" + e.Error, ToolTipIcon.Error);
                     }));
                     return;
                 }
-                
-                if (!files.MoveNext())
-                {
-                    UploadInfo(local_path, disk_path);
-                    return;
-                }
+
+
                 Console.WriteLine("Uploading file: " + fl.DiskPath + files.Current);
 
-                //fi = new FileInfo(fl.LocalPath + files.Current);
-                fs = new FileStream(fl.LocalPath + files.Current, FileMode.Open, FileAccess.Read);
-                client.UploadFileAsync(fl.DiskPath + files.Current, fs, pr, handler);
+                try
+                {
+                    fs = new FileStream(fl.LocalPath + files.Current, FileMode.Open, FileAccess.Read);
+                }
+                catch (Exception ex)
+                {
+                    Dispatcher.BeginInvoke(new ThreadStart(delegate
+                    {
+                        progress.DecrementCountOfTasks(fl_size);
+                        notifyIcon.ShowBalloonTip(0, "CCCV", "Не удалось открыть файл:" + files.Current + "\n" + ex.Message, ToolTipIcon.Error);
+                    }));
+                    return;
+                }
+                client.UploadFileAsync(fl.DiskPath + files.Current, fs, progress, handler);
             });
 
             string s = fl.DiskPath + files.Current;
             Console.WriteLine("Uploading file: " + fl.DiskPath + files.Current);
-            client.UploadFileAsync(s, fs, pr, handler);
 
+            client.UploadFileAsync(s, fs, progress, handler);
         }
     }
 }

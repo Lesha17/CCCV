@@ -12,6 +12,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Threading;
+using System.Windows.Threading;
 using Disk.SDK;
 using Disk.SDK.Provider;
 
@@ -22,12 +23,12 @@ namespace CCCV
     /// </summary>
     public partial class Progress : Page, IProgress
     {
-        private MainWindow mw;
+        MainWindow mw;
         private long all;
         private long current;
         private int index;
         private long done;
-        private bool working = true;
+        private long count_of_tasks;
         Dictionary<long, long> processes = new Dictionary<long, long>();
 
         public Progress(MainWindow mw, long all)
@@ -35,8 +36,8 @@ namespace CCCV
             InitializeComponent();
             this.All = all;
             this.Current = 0;
+            this.count_of_tasks = 0;
             this.mw = mw;
-            mw.NavigateTo(this);
         }
 
         public long All
@@ -44,7 +45,6 @@ namespace CCCV
             get { return all; }
             set
             {
-                this.working = true;
                 this.all = value;
                 string toShow = "";
 
@@ -64,7 +64,10 @@ namespace CCCV
                 {
                     toShow = all + " Байт";
                 }
-                All_TB.Text = toShow;
+                Dispatcher.BeginInvoke(new ThreadStart(delegate
+                {
+                    All_TB.Text = toShow;
+                }));
             }
         }
 
@@ -92,8 +95,11 @@ namespace CCCV
                 {
                     toShow = current + " Байт";
                 }
-                Processed_TB.Text = toShow;
-                PrBar.Value = (current / (double)all) * 100;
+                Dispatcher.BeginInvoke(new ThreadStart(delegate
+                {
+                    Processed_TB.Text = toShow;
+                    PrBar.Value = (current / (double)all) * 100;
+                }));
             }
         }
 
@@ -111,42 +117,84 @@ namespace CCCV
 
         public bool Working
         {
-            get { return this.working; }
+            get { return this.count_of_tasks > 0; }
+        }
+
+        public long CountOfTasks
+        {
+            get { return count_of_tasks; }
+        }
+
+        public void IncrementCountOfTasks()
+        {
+            this.count_of_tasks++;
+        }
+
+        public void DecrementCountOfTasks(long size)
+        {
+            this.count_of_tasks--;
+            if (this.count_of_tasks <= 0)
+            {
+                this.count_of_tasks = 0;
+                this.current = 0;
+                this.all = 0;
+                this.done = 0;
+                Dispatcher.BeginInvoke(new ThreadStart(delegate
+                {
+                    mw.NavigateToSettings();
+                }));
+
+            }
         }
 
         public void UpdateProgress(ulong current, ulong all)
         {
-            if (processes.ContainsKey((long)all))
+            lock (processes)
             {
-                if (current == all)
+                Dispatcher.BeginInvoke(new ThreadStart(delegate
                 {
-                    Done += (long)all;
-                    processes.Remove((long)all);
-                }
-                else
-                {
-                    processes[(long)all] = (long)current;
-                }
+                    if (processes.ContainsKey((long)all))
+                    {
+                        if (current == all)
+                        {
+                            Done += (long)all;
+                            processes.Remove((long)all);
+                        }
+                        else
+                        {
+                            processes[(long)all] = (long)current;
+                        }
+                    }
+                    else
+                    {
+                        processes.Add((long)all, (long)current);
+                    }
+                    long summ = 0;
+                    foreach (KeyValuePair<long, long> p in processes)
+                    {
+                        summ += p.Value;
+                    }
+                    Dispatcher.BeginInvoke(new ThreadStart(delegate { this.Current = summ; }));
+                }));
+            }
+        }
+    }
+
+    partial class MainWindow
+    {
+        //Must call from STA
+        private void InitProgress(long size)
+        {
+            if (progress == null ? true : !progress.Working)
+            {
+                progress = new Progress(this, size);
             }
             else
             {
-                processes.Add((long)all, (long)current);
+                progress.All += size;
             }
-            long summ = 0;
-            foreach (KeyValuePair<long, long> p in processes)
-            {
-                summ += p.Value;
-            }
-            Dispatcher.BeginInvoke(new ThreadStart(delegate { this.Current = summ; }));
-        }
-
-        public void Completed(bool b)
-        {
-            if (b || Current >= All)
-            {
-                working = false;
-                mw.NavigateToSettings();
-            }
+            progress.IncrementCountOfTasks();
+            MainFrame.Navigate(progress);
         }
     }
 }

@@ -177,9 +177,12 @@ namespace CCCV
                 client.GetListAsync(Disk_Data_Folder_path);
             }
 
-            processing_page = processing_page ?? new Processing_page();
-            processing_page.Status.Text = "Запуск программы...";
-            MainFrame.Navigate(processing_page);
+            Dispatcher.BeginInvoke(new ThreadStart(delegate
+            {
+                processing_page = processing_page ?? new Processing_page();
+                processing_page.Status.Text = "Запуск программы...";
+                MainFrame.Navigate(processing_page);
+            }));
         }
 
         void client_MakeDataFolderCompleted(object sender, SdkEventArgs e)
