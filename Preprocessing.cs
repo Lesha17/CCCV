@@ -29,8 +29,6 @@ namespace CCCV
         {
             this.Closing += MainWindow_Closing;
             Preprocessing_completed += MainWindow_Preprocessing_completed;
-            ready = new AutoResetEvent(true);
-            notify_message = "Ничего не происходит";
             settings = new Settings();
             CreateNotifyIcon();
 

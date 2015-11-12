@@ -23,8 +23,6 @@ namespace CCCV
         private NotifyIcon notifyIcon;
         private string access_token;
         private DiskSdkClient client;
-        private EventWaitHandle ready;
-        private string notify_message;
 
         private LogIn login_page;
         private Processing_page processing_page;

@@ -103,6 +103,18 @@ namespace CCCV
             return IntPtr.Zero;
         }
 
+        void StartTimer()
+        {
+            canUpdateFromTimer = true;
+            timer.Start();
+        }
+
+        void StopTimer()
+        {
+            canUpdateFromTimer = false;
+            timer.Stop();
+        }
+
         void MainWindow_Preprocessing_completed(object sender, EventArgs e)
         {
             Dispatcher.BeginInvoke(new System.Threading.ThreadStart(delegate
@@ -113,7 +125,7 @@ namespace CCCV
                 timer = new System.Timers.Timer(TIMER_INTERVAL);
                 timer.AutoReset = true;
                 timer.Elapsed += Timer_Elapsed;
-                timer.Start();
+                StartTimer();
             }));
         }
 
@@ -129,10 +141,9 @@ namespace CCCV
         {
             Dispatcher.BeginInvoke(new ThreadStart(delegate
             {
-                timer.Stop();
+                StopTimer();
             }));
 
-            canUpdateFromTimer = false;
             client = new DiskSdkClient(access_token);
             client.GetListCompleted += Client_GetListCompleted_To_Update;
             client.GetListAsync(Disk_Data_Folder_path);
@@ -188,7 +199,6 @@ namespace CCCV
             Dispatcher.BeginInvoke(new ThreadStart(delegate
             {
                 Item item = null;
-                notify_message = "Загрузка: ";
                 client = new DiskSdkClient(access_token);
                 FileStream fs;
                 string downloaded_data = local_data_path + name;
@@ -315,11 +325,8 @@ namespace CCCV
                 this.elements_in_DataFolder = e.Result;
                 Dispatcher.BeginInvoke(new ThreadStart(delegate
                 {
-                    timer.Start();
-
-                    notify_message = "Ничего не происходит";
-
-                    ready.Set();
+                    StartTimer();
+                    
                 }));
                 canUpdateFromTimer = true;
             };
@@ -472,7 +479,6 @@ namespace CCCV
                 }
                 Dispatcher.BeginInvoke(new ThreadStart(delegate
                 {
-                    ready.Set();
                     notifyIcon.BalloonTipClicked += delegate
                     {
 
